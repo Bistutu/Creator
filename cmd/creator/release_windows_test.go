@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -48,23 +49,24 @@ func launchWindowsMenu(t *testing.T, entry, executable, name, icon string) (int,
 	}
 	const script = `
 $ErrorActionPreference = 'Stop'
-$link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CREATOR_TEST_ENTRY)
-if ($link.TargetPath -ine $env:CREATOR_TEST_EXE) { throw "Unexpected shortcut target: $($link.TargetPath)" }
+$ProgressPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+$icon = ''
 if ($env:CREATOR_TEST_ICON) {
+  $link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CREATOR_TEST_ENTRY)
   $location = $link.IconLocation
-  if ($location -notmatch ',\s*0$' -or ($location -replace ',\s*0$', '') -ine $env:CREATOR_TEST_ICON) {
-    throw "Unexpected shortcut icon: $location"
-  }
+  if ($location -notmatch ',\s*0$') { throw "Unexpected shortcut icon: $location" }
+  $icon = $location -replace ',\s*0$', ''
 }
 $process = Start-Process -FilePath $env:CREATOR_TEST_ENTRY -PassThru
-if ($null -eq $process -or $process.Path -ine $env:CREATOR_TEST_EXE) { throw 'The shortcut did not start the installed application' }
+if ($null -eq $process) { throw 'The shortcut did not start an application' }
 try {
   $deadline = [DateTime]::UtcNow.AddSeconds(12)
   do {
     $process.Refresh()
     if ($process.HasExited) { throw "Application exited early: $($process.ExitCode)" }
     if ($process.MainWindowHandle -ne [IntPtr]::Zero -and $process.MainWindowTitle -ceq $env:CREATOR_TEST_NAME) {
-      [Console]::Write($process.Id)
+      [Console]::Write((@{ pid = $process.Id; executable = $process.Path; icon = $icon } | ConvertTo-Json -Compress))
       exit 0
     }
     Start-Sleep -Milliseconds 100
@@ -77,15 +79,55 @@ try {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	command.Env = append(os.Environ(), "CREATOR_TEST_ENTRY="+entry, "CREATOR_TEST_EXE="+executable,
-		"CREATOR_TEST_NAME="+name, "CREATOR_TEST_ICON="+icon)
-	output, err := command.CombinedOutput()
+	command.Env = append(os.Environ(), "CREATOR_TEST_ENTRY="+entry, "CREATOR_TEST_NAME="+name, "CREATOR_TEST_ICON="+icon)
+	output, err := command.Output()
 	if err != nil {
+		if failure, ok := err.(*exec.ExitError); ok {
+			output = failure.Stderr
+		}
 		t.Fatalf("opening Start menu shortcut %s: %v (%s)", entry, err, output)
 	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(output)))
-	if err != nil || pid <= 0 {
+	var result struct {
+		PID              int
+		Executable, Icon string
+	}
+	if err := json.Unmarshal(output, &result); err != nil || result.PID <= 0 {
 		t.Fatalf("invalid application process %q: %v", output, err)
 	}
-	return pid, stopTestProcess(t, pid)
+	checkWindowsMenuPath(t, "started executable", result.Executable, executable)
+	stop := stopTestProcess(t, result.PID)
+	if icon != "" {
+		checkWindowsMenuPath(t, "shortcut icon", result.Icon, icon)
+	}
+	return result.PID, stop
+}
+
+func checkWindowsMenuPath(t *testing.T, label, actual, expected string) {
+	t.Helper()
+	want, err := filepath.EvalSymlinks(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := filepath.EvalSymlinks(actual)
+	if err != nil || !strings.EqualFold(got, want) {
+		t.Fatalf("%s = %q (%v), want %q", label, actual, err, want)
+	}
+}
+
+func stopRunningTestProcess(process *os.Process) error {
+	err := process.Kill()
+	if !errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+		return err
+	}
+	// Windows rejects TerminateProcess after a normal exit. Verify the
+	// original process handle is signaled before accepting that result.
+	var exited bool
+	handleErr := process.WithHandle(func(handle uintptr) {
+		state, waitErr := windows.WaitForSingleObject(windows.Handle(handle), 0)
+		exited = waitErr == nil && state == windows.WAIT_OBJECT_0
+	})
+	if handleErr == nil && exited {
+		return nil
+	}
+	return err
 }

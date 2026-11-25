@@ -12,10 +12,32 @@ public static class CreatorTestWindows {
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(IntPtr handle, StringBuilder text, int capacity);
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
-    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr handle);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint caller, uint other, bool attach);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr handle, int command);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr handle);
+
+    public static bool FocusWindow(IntPtr handle) {
+        if (GetForegroundWindow() == handle) return true;
+        SetForegroundWindow(handle);
+        IntPtr foreground = GetForegroundWindow();
+        if (foreground == handle) return true;
+        if (foreground == IntPtr.Zero) return false;
+        uint owner;
+        uint thread = GetWindowThreadProcessId(foreground, out owner);
+        uint caller = GetCurrentThreadId();
+        // The test driver may not own the foreground input queue when a
+        // window opens. Join it just for activation, then send to the test window.
+        if (thread == 0 || thread == caller || !AttachThreadInput(caller, thread, true)) return false;
+        try {
+            SetForegroundWindow(handle);
+        } finally {
+            AttachThreadInput(caller, thread, false);
+        }
+        return GetForegroundWindow() == handle;
+    }
 
     public static IntPtr Find(uint processId, string title) {
         IntPtr result = IntPtr.Zero;
@@ -96,8 +118,8 @@ function Expect-Value($window, [string]$name, [string]$expected) {
 
 function Send-WindowKeys($window, [string]$keys) {
     $handle = [IntPtr]$window.Current.NativeWindowHandle
-    [void][CreatorTestWindows]::SetForegroundWindow($handle)
-    [void](Wait-For 'the test window to receive keyboard focus' { [CreatorTestWindows]::GetForegroundWindow() -eq $handle })
+    $title = $window.Current.Name
+    [void](Wait-For "keyboard focus in '$title' for '$keys'" { [CreatorTestWindows]::FocusWindow($handle) })
     [System.Windows.Forms.SendKeys]::SendWait($keys)
 }
 

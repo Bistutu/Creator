@@ -17,12 +17,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/egoist/mygo/ui"
 	"github.com/Bistutu/Creator/internal/bundle"
 	"github.com/Bistutu/Creator/internal/icons"
 	"github.com/Bistutu/Creator/internal/launcher"
 	"github.com/Bistutu/Creator/internal/library"
 	"github.com/Bistutu/Creator/internal/profile"
+	"github.com/egoist/mygo/ui"
 )
 
 func TestPortableInstalledCreatorWorkflow(t *testing.T) {
@@ -414,8 +414,9 @@ func stopTestProcess(t *testing.T, pid int) func() {
 			return
 		}
 		stopped = true
-		if err := process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		if err := stopRunningTestProcess(process); err != nil && !errors.Is(err, os.ErrProcessDone) {
 			t.Errorf("stopping test application: %v", err)
+			_ = process.Release()
 			return
 		}
 		if _, err := process.Wait(); err != nil && !errors.Is(err, os.ErrProcessDone) {

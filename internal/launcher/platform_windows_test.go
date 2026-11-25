@@ -17,6 +17,7 @@ import (
 func TestWindowsStartMenuTracksAppLifecycle(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) { checkWindowsStartMenuLifecycle(t, "Example Desk") })
 	t.Run("Unicode", func(t *testing.T) { checkWindowsStartMenuLifecycle(t, "示例 Desk") })
+	t.Run("Punctuation", func(t *testing.T) { checkWindowsStartMenuLifecycle(t, "示例 & 50%") })
 }
 
 func checkWindowsStartMenuLifecycle(t *testing.T, name string) {

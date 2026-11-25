@@ -11,13 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ebitengine/purego"
 	"github.com/Bistutu/Creator/internal/profile"
+	"github.com/ebitengine/purego"
 )
 
 func portableFixtureNames() (string, string) {
 	// Both names must be usable without replacing files in the application.
 	return "website.json", "AppIcon.png"
+}
+
+func stopRunningTestProcess(process *os.Process) error {
+	return process.Kill()
 }
 
 func generatedMenu(t *testing.T, app profile.App, executable string) (entry, icon string) {
