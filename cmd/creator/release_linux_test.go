@@ -20,10 +20,6 @@ func portableFixtureNames() (string, string) {
 	return "website.json", "AppIcon.png"
 }
 
-func stopRunningTestProcess(process *os.Process) error {
-	return process.Kill()
-}
-
 func generatedMenu(t *testing.T, app profile.App, executable string) (entry, icon string) {
 	t.Helper()
 	return filepath.Join(os.Getenv("XDG_DATA_HOME"), "applications", "com.webcrate."+app.ID+".desktop"),
@@ -44,7 +40,7 @@ func launchPortableMenu(t *testing.T, entry, executable, name, icon string) func
 		t.Fatalf("desktop entry validation: %v (%s)", err, out)
 	}
 	pid := startLinuxDesktopEntry(t, entry)
-	stop := stopTestProcess(t, pid)
+	stop := stopTestProcess(t, pid, (*os.Process).Kill)
 	expected, err := filepath.EvalSymlinks(executable)
 	if err != nil {
 		t.Fatal(err)

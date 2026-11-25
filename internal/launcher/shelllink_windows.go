@@ -140,6 +140,26 @@ func shortcutTarget(path string) string {
 	return windows.UTF16ToString(target[:])
 }
 
+// WindowsShortcutIcon reads the icon location of a saved Shell link.
+func WindowsShortcutIcon(path string) (icon string, index int32, err error) {
+	err = withCOM(func() error {
+		return withSavedShortcut(path, func(link *shellLink) error {
+			var readErr error
+			icon, index, readErr = link.iconLocation()
+			return readErr
+		})
+	})
+	return icon, index, err
+}
+
+func (link *shellLink) iconLocation() (string, int32, error) {
+	var text [windows.MAX_PATH]uint16
+	var index int32
+	result, _, _ := syscall.SyscallN(link.v.getIconLocation, uintptr(unsafe.Pointer(link)),
+		uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)), uintptr(unsafe.Pointer(&index)))
+	return windows.UTF16ToString(text[:]), index, hresult("get shortcut icon", result)
+}
+
 func withSavedShortcut(path string, use func(*shellLink) error) error {
 	return withShortcut(func(link *shellLink, file *persistFile) error {
 		read := uintptr(0)

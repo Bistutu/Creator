@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
 Add-Type -TypeDefinition @'
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -12,31 +13,69 @@ public static class CreatorTestWindows {
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(IntPtr handle, StringBuilder text, int capacity);
-    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr handle);
-    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint caller, uint other, bool attach);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string className, string title);
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr window);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool AttachThreadInput(uint caller, uint other, bool attach);
+    [DllImport("user32.dll")] private static extern uint GetQueueStatus(uint flags);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool GetKeyboardState(byte[] keys);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool SetKeyboardState(byte[] keys);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, UIntPtr key, IntPtr data,
+        uint flags, uint timeout, out UIntPtr result);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr handle, int command);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr handle);
 
-    public static bool FocusWindow(IntPtr handle) {
-        if (GetForegroundWindow() == handle) return true;
-        SetForegroundWindow(handle);
-        IntPtr foreground = GetForegroundWindow();
-        if (foreground == handle) return true;
-        if (foreground == IntPtr.Zero) return false;
+    private static IntPtr Surface(IntPtr window) {
+        IntPtr surface = FindWindowEx(window, IntPtr.Zero, "MyGoSurface", null);
+        if (surface == IntPtr.Zero) throw new InvalidOperationException("Creator has no native input surface");
+        return surface;
+    }
+
+    private static void Send(IntPtr surface, uint message, uint key, long data) {
+        UIntPtr result;
+        if (SendMessageTimeout(surface, message, new UIntPtr(key), new IntPtr(data), 2, 2000, out result) == IntPtr.Zero &&
+            IsWindow(surface)) throw new InvalidOperationException("Creator did not handle its input message");
+    }
+
+    public static void Text(IntPtr window, string text) {
+        IntPtr surface = Surface(window);
+        foreach (char c in text) Send(surface, 0x0102, c, 1); // WM_CHAR
+    }
+
+    public static void Key(IntPtr window, uint key, bool control) {
+        IntPtr surface = Surface(window);
+        if (!control) {
+            SendKey(surface, key);
+            return;
+        }
+        // Share the tested window's keyboard state while delivering a native
+        // accelerator. The runner's foreground window can belong to another app.
         uint owner;
-        uint thread = GetWindowThreadProcessId(foreground, out owner);
+        uint thread = GetWindowThreadProcessId(surface, out owner);
         uint caller = GetCurrentThreadId();
-        // The test driver may not own the foreground input queue when a
-        // window opens. Join it just for activation, then send to the test window.
-        if (thread == 0 || thread == caller || !AttachThreadInput(caller, thread, true)) return false;
+        GetQueueStatus(0x04ff);
+        if (!AttachThreadInput(caller, thread, true)) throw new Win32Exception(Marshal.GetLastWin32Error());
         try {
-            SetForegroundWindow(handle);
+            byte[] saved = new byte[256];
+            if (!GetKeyboardState(saved)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            byte[] pressed = (byte[])saved.Clone();
+            pressed[0x11] = 0x80; // VK_CONTROL
+            if (!SetKeyboardState(pressed)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            try {
+                SendKey(surface, key);
+            } finally {
+                SetKeyboardState(saved);
+            }
         } finally {
             AttachThreadInput(caller, thread, false);
         }
-        return GetForegroundWindow() == handle;
+    }
+
+    private static void SendKey(IntPtr surface, uint key) {
+        Send(surface, 0x0100, key, 1); // WM_KEYDOWN
+        if (IsWindow(surface)) Send(surface, 0x0101, key, 0xc0000001L); // WM_KEYUP
     }
 
     public static IntPtr Find(uint processId, string title) {
@@ -118,9 +157,13 @@ function Expect-Value($window, [string]$name, [string]$expected) {
 
 function Send-WindowKeys($window, [string]$keys) {
     $handle = [IntPtr]$window.Current.NativeWindowHandle
-    $title = $window.Current.Name
-    [void](Wait-For "keyboard focus in '$title' for '$keys'" { [CreatorTestWindows]::FocusWindow($handle) })
-    [System.Windows.Forms.SendKeys]::SendWait($keys)
+    switch ($keys) {
+        '{ENTER}' { [CreatorTestWindows]::Key($handle, 0x0d, $false) }
+        '{ESC}' { [CreatorTestWindows]::Key($handle, 0x1b, $false) }
+        '^,' { [CreatorTestWindows]::Key($handle, 0xbc, $true) }
+        '^w' { [CreatorTestWindows]::Key($handle, 0x57, $true) }
+        default { [CreatorTestWindows]::Text($handle, $keys) }
+    }
 }
 
 $manager = Open-Window 'Creator'

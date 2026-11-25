@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -16,7 +15,6 @@ import (
 
 func TestWindowsInstalledWebsiteRuntimeUnavailable(t *testing.T) {
 	installed, _, state := portableInstalledFixture(t)
-	t.Setenv("LOCALAPPDATA", filepath.Join(state, "local"))
 	address, rendered := installedWebsiteFixture(t)
 	address += "#workspace"
 	service := portableInstalledLibrary(t, installed, state)

@@ -273,19 +273,14 @@ func assertNativeLink(t *testing.T, path, id, executable string) {
 		if owner := shortcutOwner(path); owner != id {
 			t.Errorf("shortcut ownership = %q, want %q", owner, id)
 		}
-		return withShortcut(func(link *shellLink, file *persistFile) error {
-			read := uintptr(0)
-			if err := shortcutString("load shortcut", file.v.load, unsafe.Pointer(file), path, &read); err != nil {
-				return err
-			}
-			var target, icon [1024]uint16
+		return withSavedShortcut(path, func(link *shellLink) error {
+			var target [1024]uint16
 			result, _, _ := syscall.SyscallN(link.v.getPath, uintptr(unsafe.Pointer(link)), uintptr(unsafe.Pointer(&target[0])), uintptr(len(target)), 0, 0)
 			if err := hresult("get target", result); err != nil {
 				return err
 			}
-			var index int32
-			result, _, _ = syscall.SyscallN(link.v.getIconLocation, uintptr(unsafe.Pointer(link)), uintptr(unsafe.Pointer(&icon[0])), uintptr(len(icon)), uintptr(unsafe.Pointer(&index)))
-			if err := hresult("get icon", result); err != nil {
+			icon, index, err := link.iconLocation()
+			if err != nil {
 				return err
 			}
 			got := windows.UTF16ToString(target[:])
@@ -293,8 +288,8 @@ func assertNativeLink(t *testing.T, path, id, executable string) {
 			if err != nil || !strings.EqualFold(resolved, targetPath) {
 				t.Errorf("shortcut target = %q (%v), want %q", got, err, targetPath)
 			}
-			if got := windows.UTF16ToString(icon[:]); !strings.EqualFold(got, filepath.Join(filepath.Dir(executable), "AppIcon.ico")) || index != 0 {
-				t.Errorf("shortcut icon = %q (%d)", got, index)
+			if !strings.EqualFold(icon, filepath.Join(filepath.Dir(executable), "AppIcon.ico")) || index != 0 {
+				t.Errorf("shortcut icon = %q (%d)", icon, index)
 			}
 			return nil
 		})

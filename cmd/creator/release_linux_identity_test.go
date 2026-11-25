@@ -91,7 +91,7 @@ func TestLinuxInstalledWebsiteSettingsUnavailable(t *testing.T) {
 	t.Cleanup(func() { _ = os.Rename(profilePath+".saved", profilePath) })
 	entry, _ := generatedMenu(t, app, executable)
 	process := startLinuxDesktopEntry(t, entry)
-	stopTestProcess(t, process)
+	stopTestProcess(t, process, (*os.Process).Kill)
 	pid := strconv.Itoa(process)
 	const title = "无法读取应用设置"
 	window := strings.TrimSpace(linuxXDo(t, "search", "--sync", "--all", "--onlyvisible", "--pid", pid, "--name", "^"+title+"$"))

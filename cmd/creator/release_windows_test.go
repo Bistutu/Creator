@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
+	"github.com/Bistutu/Creator/internal/launcher"
 	"github.com/Bistutu/Creator/internal/profile"
 	"golang.org/x/sys/windows"
 )
@@ -46,18 +48,16 @@ func launchWindowsMenu(t *testing.T, entry, executable, name, icon string) (int,
 		if err != nil || len(contents) < 6 || contents[2] != 1 {
 			t.Fatalf("invalid installed ICO %s: %v", icon, err)
 		}
+		actual, index, err := launcher.WindowsShortcutIcon(entry)
+		if err != nil || index != 0 {
+			t.Fatalf("invalid shortcut icon %q at index %d: %v", actual, index, err)
+		}
+		checkWindowsMenuPath(t, "shortcut icon", actual, icon)
 	}
 	const script = `
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-$icon = ''
-if ($env:CREATOR_TEST_ICON) {
-  $link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CREATOR_TEST_ENTRY)
-  $location = $link.IconLocation
-  if ($location -notmatch ',\s*0$') { throw "Unexpected shortcut icon: $location" }
-  $icon = $location -replace ',\s*0$', ''
-}
 $process = Start-Process -FilePath $env:CREATOR_TEST_ENTRY -PassThru
 if ($null -eq $process) { throw 'The shortcut did not start an application' }
 try {
@@ -66,7 +66,7 @@ try {
     $process.Refresh()
     if ($process.HasExited) { throw "Application exited early: $($process.ExitCode)" }
     if ($process.MainWindowHandle -ne [IntPtr]::Zero -and $process.MainWindowTitle -ceq $env:CREATOR_TEST_NAME) {
-      [Console]::Write((@{ pid = $process.Id; executable = $process.Path; icon = $icon } | ConvertTo-Json -Compress))
+      [Console]::Write((@{ pid = $process.Id; executable = $process.Path; window = $process.MainWindowHandle.ToInt64() } | ConvertTo-Json -Compress))
       exit 0
     }
     Start-Sleep -Milliseconds 100
@@ -79,7 +79,7 @@ try {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
-	command.Env = append(os.Environ(), "CREATOR_TEST_ENTRY="+entry, "CREATOR_TEST_NAME="+name, "CREATOR_TEST_ICON="+icon)
+	command.Env = append(os.Environ(), "CREATOR_TEST_ENTRY="+entry, "CREATOR_TEST_NAME="+name)
 	output, err := command.Output()
 	if err != nil {
 		if failure, ok := err.(*exec.ExitError); ok {
@@ -88,17 +88,17 @@ try {
 		t.Fatalf("opening Start menu shortcut %s: %v (%s)", entry, err, output)
 	}
 	var result struct {
-		PID              int
-		Executable, Icon string
+		PID        int
+		Executable string
+		Window     uintptr
 	}
-	if err := json.Unmarshal(output, &result); err != nil || result.PID <= 0 {
+	if err := json.Unmarshal(output, &result); err != nil || result.PID <= 0 || result.Window == 0 {
 		t.Fatalf("invalid application process %q: %v", output, err)
 	}
 	checkWindowsMenuPath(t, "started executable", result.Executable, executable)
-	stop := stopTestProcess(t, result.PID)
-	if icon != "" {
-		checkWindowsMenuPath(t, "shortcut icon", result.Icon, icon)
-	}
+	stop := stopTestProcess(t, result.PID, func(process *os.Process) error {
+		return stopWindowsTestProcess(process, result.Window)
+	})
 	return result.PID, stop
 }
 
@@ -114,7 +114,25 @@ func checkWindowsMenuPath(t *testing.T, label, actual, expected string) {
 	}
 }
 
-func stopRunningTestProcess(process *os.Process) error {
+func stopWindowsTestProcess(process *os.Process, window uintptr) error {
+	var graceful bool
+	_ = process.WithHandle(func(handle uintptr) {
+		if windowsTestProcessExited(handle, 0) {
+			graceful = true
+			return
+		}
+		user := windows.NewLazySystemDLL("user32.dll")
+		var owner uint32
+		user.NewProc("GetWindowThreadProcessId").Call(window, uintptr(unsafe.Pointer(&owner)))
+		if owner == uint32(process.Pid) {
+			const closeWindow = 0x0010 // WM_CLOSE
+			user.NewProc("PostMessageW").Call(window, closeWindow, 0, 0)
+			graceful = windowsTestProcessExited(handle, 4000)
+		}
+	})
+	if graceful {
+		return nil
+	}
 	err := process.Kill()
 	if !errors.Is(err, windows.ERROR_ACCESS_DENIED) {
 		return err
@@ -123,11 +141,15 @@ func stopRunningTestProcess(process *os.Process) error {
 	// original process handle is signaled before accepting that result.
 	var exited bool
 	handleErr := process.WithHandle(func(handle uintptr) {
-		state, waitErr := windows.WaitForSingleObject(windows.Handle(handle), 0)
-		exited = waitErr == nil && state == windows.WAIT_OBJECT_0
+		exited = windowsTestProcessExited(handle, 0)
 	})
 	if handleErr == nil && exited {
 		return nil
 	}
 	return err
+}
+
+func windowsTestProcessExited(handle uintptr, wait uint32) bool {
+	state, err := windows.WaitForSingleObject(windows.Handle(handle), wait)
+	return err == nil && state == windows.WAIT_OBJECT_0
 }

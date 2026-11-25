@@ -378,10 +378,32 @@ func portableInstalledFixture(t *testing.T) (installed, managerEntry, state stri
 	}
 	checkPortableReleaseFile(t, installed)
 	checkPortableReleaseFile(t, managerEntry)
-	state = t.TempDir()
 	if runtime.GOOS == "windows" {
+		// WebView2 adds browser, profile and IndexedDB segments to this
+		// path. Keep the temporary base short enough for its file APIs.
+		var err error
+		state, err = os.MkdirTemp("", "creator-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			end := time.Now().Add(8 * time.Second)
+			for {
+				err := os.RemoveAll(state)
+				if err == nil {
+					return
+				}
+				if time.Now().After(end) {
+					t.Errorf("removing the isolated application data: %v", err)
+					return
+				}
+				time.Sleep(150 * time.Millisecond)
+			}
+		})
 		t.Setenv("APPDATA", state)
+		t.Setenv("LOCALAPPDATA", filepath.Join(state, "local"))
 	} else {
+		state = t.TempDir()
 		t.Setenv("XDG_CONFIG_HOME", filepath.Join(state, "config"))
 		t.Setenv("XDG_CACHE_HOME", filepath.Join(state, "cache"))
 		t.Setenv("XDG_DATA_HOME", filepath.Join(state, "data"))
@@ -402,7 +424,7 @@ func checkPortableReleaseFile(t *testing.T, file string) {
 	}
 }
 
-func stopTestProcess(t *testing.T, pid int) func() {
+func stopTestProcess(t *testing.T, pid int, terminate func(*os.Process) error) func() {
 	t.Helper()
 	process, err := os.FindProcess(pid)
 	if err != nil {
@@ -414,7 +436,7 @@ func stopTestProcess(t *testing.T, pid int) func() {
 			return
 		}
 		stopped = true
-		if err := stopRunningTestProcess(process); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		if err := terminate(process); err != nil && !errors.Is(err, os.ErrProcessDone) {
 			t.Errorf("stopping test application: %v", err)
 			_ = process.Release()
 			return
