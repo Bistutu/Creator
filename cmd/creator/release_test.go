@@ -190,9 +190,20 @@ func installedWebsiteFixture(t *testing.T) (string, <-chan installedWebsiteRepor
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = io.WriteString(w, `<!doctype html><title>Creator acceptance</title><h1>Workbench</h1><script>
-const report = (state) => fetch('/ready', {method: 'POST', body: JSON.stringify({
-  state, url: location.href, width: innerWidth, height: innerHeight,
-})});
+const report = (state) => {
+  const send = () => {
+    // MyGo applies CSS zoom after loading on Windows ARM64. Native zoom
+    // already changes innerWidth; CSS zoom changes the page within it.
+    const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+    fetch('/ready', {method: 'POST', body: JSON.stringify({
+      state, url: location.href,
+      width: Math.round(innerWidth / zoom), height: Math.round(innerHeight / zoom),
+    })});
+  };
+  const afterLoad = () => setTimeout(send, 100);
+  if (document.readyState === 'complete') afterLoad();
+  else addEventListener('load', afterLoad, {once: true});
+};
 const opening = indexedDB.open('creator-acceptance', 1);
 opening.onupgradeneeded = () => opening.result.createObjectStore('settings');
 opening.onerror = () => report(String(opening.error));
