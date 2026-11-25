@@ -1,0 +1,285 @@
+name: Creator CI and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v[0-9]*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      macos_webkit:
+        type: boolean
+        description: Run the AppKit, WebKit and macOS installer workflow checks
+        default: true
+      windows_webview:
+        type: boolean
+        description: Run the standalone WebView2 check on Windows
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: Native desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0t64 libwebkit2gtk-4.1-0 libglib2.0-bin desktop-file-utils xvfb xauth
+      - name: Prepare the packaged runner
+        run: go run ./cmd/package -prepare
+      - name: Run Go regressions
+        run: go test -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: Check the local test supervisor
+        if: runner.os == 'macOS'
+        run: python3 -B -m unittest discover -s tools/tests
+      - name: Report Go coverage
+        run: go tool cover -func=coverage.out
+      - name: Check standalone AppKit and WebKit workflows
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || inputs.macos_webkit)
+        env:
+          WEBCRATE_GUI_SMOKE: '1'
+        run: go test -v -count=1 -run '^Test(Mac(StandaloneLoadsInSystemWebKit|WebsiteWindowInteractions|LaunchServicesFindsCreatedApp)|MyGoStandaloneReusesRunningInstance)$' ./internal/bundle ./internal/launcher
+      - name: Check a generated app in system WebKitGTK
+        if: runner.os == 'Linux'
+        env:
+          WEBCRATE_GUI_SMOKE: '1'
+        run: xvfb-run -a dbus-run-session -- go test -v -count=1 -run '^TestPortable(StandaloneLoadsInSystemWebView|LaunchesDuringAnotherRuntimeRepair)$' ./internal/bundle
+      - name: Check a generated app in system WebView2
+        if: runner.os == 'Windows' && inputs.windows_webview
+        env:
+          WEBCRATE_GUI_SMOKE: '1'
+        run: go test -v -count=1 -run '^TestPortable(StandaloneLoadsInSystemWebView|LaunchesDuringAnotherRuntimeRepair)$' ./internal/bundle
+
+  website:
+    name: Website and release downloads
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Check the version tag and release notes
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          CREATOR_RELEASE_TAG: ${{ github.ref_name }}
+        run: node website/release-assets.mjs "$CREATOR_RELEASE_TAG"
+      - name: Set up release packaging tools
+        run: brew install makensis sevenzip xz
+      - name: Build the five release targets
+        run: go run ./cmd/package -platform darwin/universal,windows/amd64,windows/arm64,linux/amd64,linux/arm64 -- -o build/release
+      - name: Package downloads and check the site
+        working-directory: website
+        run: |
+          npm ci
+          npm test
+          npm run package
+          npm run build
+          npx playwright install chromium
+          npm run test:browser
+      - name: Share the website installers with the native runners
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: creator-installers
+          path: website/dist/downloads/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: Check an application created from the installed DMG
+        if: github.event_name != 'workflow_dispatch' || inputs.macos_webkit
+        shell: bash
+        run: |
+          version=$(node -p 'require("./mygo.json").version')
+          mount=$(mktemp -d "$RUNNER_TEMP/creator-dmg.XXXXXX")
+          installed=$(mktemp -d "$RUNNER_TEMP/creator-installed.XXXXXX")
+          mounted=0
+          cleanup() {
+            if [ "$mounted" -eq 1 ]; then
+              hdiutil detach "$mount" || hdiutil detach -force "$mount"
+            fi
+            rmdir "$mount" 2>/dev/null || true
+            rm -rf "$installed"
+          }
+          trap cleanup EXIT
+          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$mount" "website/dist/downloads/Creator-$version-macos-universal.dmg"
+          mounted=1
+          ditto "$mount/Creator.app" "$installed/Creator.app"
+          hdiutil detach "$mount"
+          mounted=0
+          WEBCRATE_RELEASE_APP="$installed/Creator.app" go test -v -count=1 -run '^TestMacInstalledCreatorWorkflow$' .
+
+  installed:
+    name: Install and open from the system menu (${{ matrix.os }})
+    needs: website
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            arch: amd64
+          - os: windows-11-arm
+            arch: arm64
+          - os: ubuntu-24.04
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    env:
+      CREATOR_RELEASE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          architecture: ${{ matrix.arch == 'amd64' && 'x64' || 'arm64' }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: creator-installers
+          path: ${{ runner.temp }}/creator-installers
+      - name: Install the DEB and check its desktop entries
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          WEBCRATE_RELEASE_APP: /opt/creator/creator
+          WEBCRATE_RELEASE_MENU: /usr/share/applications/creator.desktop
+        run: |
+          version=$(python3 -c 'import json; print(json.load(open("mygo.json"))["version"])')
+          package="$RUNNER_TEMP/creator-installers/Creator-$version-linux-$CREATOR_RELEASE_ARCH.deb"
+          test "$(dpkg --print-architecture)" = "$CREATOR_RELEASE_ARCH"
+          test -f "$package"
+          sudo apt-get update
+          sudo apt-get install -y "$package" dbus-daemon desktop-file-utils xvfb xauth xdotool at-spi2-core python3-pyatspi cage
+          sudo apt-get install -y --no-install-recommends openbox x11-utils
+          test "$(dpkg-query -W -f '${Version}' creator)" = "$version"
+          xvfb-run -a --server-args="-screen 0 1280x800x24 -noreset" dbus-run-session -- go test -v -count=1 -run '^Test(PortableInstalledCreatorWorkflow|LinuxInstalled(Creator(UI|Keyboard|LibrarySearch|Preferences|RecoversNonregularProfiles|RecoversWindowState|ReceivesWebsiteLink|ReopensFromMenu|UsesManifestArtwork|CustomIconUsesWebsiteName|ReturnsPendingWebsiteArtwork|SharesPendingWebsiteArtwork)|Website(Interactions|Navigation|AddressActions|RuntimeUnavailable|SettingsUnavailable|Recovery|Files|PopupDownloads|Zoom|Fullscreen|Placement|RecoversWindowState|OpensWithNonregularIcon)|DesktopIdentity))$' .
+          WEBCRATE_LINUX_MEDIA_SMOKE=1 xvfb-run -a --server-args="-screen 0 1024x768x24 -noreset" dbus-run-session -- go test -v -count=1 -run '^TestGtkMediaPermissions$' ./internal/webwindow
+          WEBCRATE_WAYLAND_SMOKE=1 dbus-run-session -- go test -v -count=1 -run '^TestLinuxInstalledWaylandIdentity$' .
+      - name: Extract the portable Linux archive and open its desktop entry
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          version=$(python3 -c 'import json; print(json.load(open("mygo.json"))["version"])')
+          portable=$(mktemp -d "$RUNNER_TEMP/creator-portable.XXXXXX")
+          trap 'rm -rf "$portable"' EXIT
+          tar -xJf "$RUNNER_TEMP/creator-installers/Creator-$version-linux-$CREATOR_RELEASE_ARCH.tar.xz" -C "$portable"
+          PATH="$portable:$PATH" WEBCRATE_RELEASE_APP="$portable/creator" WEBCRATE_RELEASE_MENU="$portable/creator.desktop" \
+            xvfb-run -a --server-args="-screen 0 1280x800x24 -noreset" dbus-run-session -- \
+            go test -v -count=1 -run '^Test(PortableInstalledCreatorWorkflow|LinuxInstalledWebsitePlacement)$' .
+      - name: Ensure the Windows runner has WebView2
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $client = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $paths = @("HKLM:\SOFTWARE\WOW6432Node\$client", "HKCU:\Software\$client")
+          $runtime = Get-ItemPropertyValue -Path $paths -Name pv -ErrorAction SilentlyContinue |
+            Where-Object { $_ -and [version]$_ -gt [version]'0.0.0.0' }
+          if (!$runtime) {
+            $bootstrapper = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+            Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrapper
+            $process = Start-Process -FilePath $bootstrapper -ArgumentList '/silent', '/install' -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "WebView2 setup exited with $($process.ExitCode)" }
+          }
+      - name: Check installed Creator and website apps on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $config = Get-Content -LiteralPath mygo.json -Raw | ConvertFrom-Json
+          $hostArch = ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture).ToString().ToLowerInvariant()
+          if ($hostArch -eq 'x64') { $hostArch = 'amd64' }
+          if ($hostArch -ne $env:CREATOR_RELEASE_ARCH -or (go env GOHOSTARCH) -ne $env:CREATOR_RELEASE_ARCH) {
+            throw 'Installer, Windows and Go architectures must match'
+          }
+          $setup = Join-Path $env:RUNNER_TEMP "creator-installers/Creator-$($config.version)-windows-${env:CREATOR_RELEASE_ARCH}-setup.exe"
+          $process = Start-Process -FilePath $setup -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Creator setup exited with $($process.ExitCode)" }
+          $registration = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$($config.identifier)"
+          if ($registration.DisplayVersion -ne $config.version) { throw 'Wrong installed Creator version' }
+          $env:WEBCRATE_RELEASE_APP = Join-Path $registration.InstallLocation 'Creator.exe'
+          $env:WEBCRATE_RELEASE_MENU = Join-Path ([Environment]::GetFolderPath('Programs')) 'Creator.lnk'
+          go test -v -count=1 -run '^Test(Windows(StartMenu|MenuDirectory|Shortcut|Website(Shortcut|Process)Identity)|WindowStateFile|WindowGeometryStore|PageZoom)' ./internal/launcher ./internal/settings ./internal/webwindow
+          if ($LASTEXITCODE -ne 0) { throw 'Windows desktop entry or window settings regression failed' }
+          go test -v -count=1 -run '^Test(WindowsInstalled(CreatorPreferences|WebsiteRuntimeUnavailable)|PortableInstalledCreatorWorkflow)$' .
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Creator regression failed' }
+          $runnerResources = "resources/windows-$env:CREATOR_RELEASE_ARCH"
+          New-Item -ItemType Directory -Path $runnerResources -Force | Out-Null
+          foreach ($resource in @('WebCrateRunner.exe', 'WebCrateRunner.exe.sha256')) {
+            Copy-Item -LiteralPath (Join-Path $registration.InstallLocation $resource) -Destination $runnerResources
+          }
+          $env:WEBCRATE_GUI_SMOKE = '1'
+          go test -v -count=1 -timeout=50s -run '^TestPortableLaunchesDuringAnotherRuntimeRepair$' ./internal/bundle
+
+  publish:
+    name: Publish GitHub Release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [desktop, website, installed]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: creator-installers
+          path: ${{ runner.temp }}/creator-installers
+      - name: Generate and verify release metadata
+        env:
+          CREATOR_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          release_dir="$RUNNER_TEMP/creator-installers"
+          commit=$(git rev-parse HEAD)
+          node website/release-assets.mjs "$CREATOR_RELEASE_TAG" "$commit" "$release_dir"
+          (cd "$release_dir" && sha256sum --strict --check SHA256SUMS.txt)
+          cp "docs/releases/${CREATOR_RELEASE_TAG#v}.md" "$RUNNER_TEMP/creator-release-notes.md"
+          printf '\nSource commit / 发布提交 \x60%s\x60\n' "$commit" >> "$RUNNER_TEMP/creator-release-notes.md"
+      - name: Publish the verified packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CREATOR_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          release_dir="$RUNNER_TEMP/creator-installers"
+          manifest="$release_dir/release-manifest.json"
+          commit=$(jq -er '.commit' "$manifest")
+          tagged_commit=$(gh api "repos/$GITHUB_REPOSITORY/commits/$CREATOR_RELEASE_TAG" --jq '.sha')
+          test "$tagged_commit" = "$commit"
+          package_paths=$(jq -er --arg dir "$release_dir" '.downloads[].file | $dir + "/" + .' "$manifest")
+          mapfile -t packages <<< "$package_paths"
+          options=()
+          if [[ "$CREATOR_RELEASE_TAG" == *-* ]]; then
+            options+=(--prerelease)
+          fi
+          gh release create "$CREATOR_RELEASE_TAG" "${packages[@]}" \
+            "$release_dir/SHA256SUMS.txt" "$release_dir/release-manifest.json" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "Creator ${CREATOR_RELEASE_TAG#v}" \
+            --notes-file "$RUNNER_TEMP/creator-release-notes.md" "${options[@]}"

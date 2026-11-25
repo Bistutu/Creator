@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#f9f9fc" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#171921" media="(prefers-color-scheme: dark)">
+    <meta name="description" content="{{product}} 把常用网站变成独立的桌面应用。支持 macOS、Windows 和 Linux。">
+    <title>{{product}} · 把常用网站变成桌面应用</title>
+    <link rel="icon" href="assets/icon.png">
+    <link rel="stylesheet" href="site.css">
+    <script src="site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#content">跳到正文</a>
+    <header class="site-header wrap">
+      <a class="brand" href="index.html" aria-label="{{product}} 首页">
+        <img src="assets/icon.png" width="34" height="34" alt="">
+        <span>{{product}}</span>
+      </a>
+      <nav aria-label="主导航">
+        <a href="#workflow">上手指南</a>
+        <a href="#downloads">下载</a>
+      </nav>
+    </header>
+    <main id="content">
+      <section class="hero wrap" aria-labelledby="headline">
+        <div class="hero-copy">
+          <h1 id="headline">把常用网站<span>变成桌面应用</span></h1>
+          <p class="hero-intro">让 DeepSeek、小红书和常用工具各有一个窗口。贴上网址，创建后就能直接从系统打开。</p>
+          <div class="hero-actions">
+            <a class="button primary" id="primary-download" href="#downloads">下载 {{product}}</a>
+            <a class="button secondary" id="all-downloads" href="#downloads" hidden>所有版本</a>
+          </div>
+          <p class="download-meta" id="download-meta" hidden></p>
+        </div>
+        <figure class="hero-preview" aria-label="{{product}} 应用效果">
+          <img class="window-result" src="assets/standalone.png" width="720" height="512" fetchpriority="high"
+            alt="示例阅读工作台在独立的 macOS 窗口中运行，网页铺满窗口">
+          <img class="window-creator" src="assets/create.png" width="448" height="640" decoding="async"
+            alt="{{product}} 桌面创建页，上方是网址输入和分类，下方是常用站点图标">
+        </figure>
+      </section>
+
+      <ul class="highlights wrap" aria-label="桌面应用特性">
+        <li><strong>本机创建</strong><p>带上网站图标，创建后即可打开。</p></li>
+        <li><strong>独立登录</strong><p>同一个网站也可以保留多个会话。</p></li>
+        <li><strong>尺寸与缩放</strong><p>每个应用记住自己的窗口尺寸与网页缩放。</p></li>
+      </ul>
+
+      <section class="workflow wrap" id="workflow" aria-labelledby="workflow-title">
+        <div class="workflow-copy">
+          <h2 id="workflow-title">从网址到桌面</h2>
+          <div class="steps">
+            <details name="workflow-step" open data-image="assets/create.png" data-alt="{{product}} 的站点选择界面">
+              <summary>选择站点</summary>
+              <p>用名称和用途搜索推荐站点，也可以直接粘贴网址。</p>
+            </details>
+            <details name="workflow-step" data-image="assets/settings.png" data-alt="{{product}} 的新建应用表单，可确认名称和图标">
+              <summary>确认创建</summary>
+              <p>核对名称和图标。需要时可在表单底部展开「窗口尺寸」。</p>
+            </details>
+            <details name="workflow-step" data-image="assets/standalone.png" data-alt="生成的应用在自己的 macOS 窗口里运行">
+              <summary>打开应用</summary>
+              <p>从应用库或系统菜单打开。搜到唯一结果时按回车。关闭 {{product}} 后，独立应用仍可以运行。</p>
+            </details>
+          </div>
+        </div>
+        <figure class="workflow-preview">
+          <img id="workflow-image" src="assets/create.png" width="448" height="640" loading="lazy" decoding="async"
+            alt="{{product}} 的站点选择界面">
+        </figure>
+      </section>
+
+      <section class="downloads wrap" id="downloads" aria-labelledby="download-title">
+        <div class="section-lead">
+          <h2 id="download-title">下载 {{product}}</h2>
+          <p>{{version}} 预览版</p>
+        </div>
+        <div class="platforms">{{platforms}}</div>
+      </section>
+    </main>
+    <footer class="wrap site-footer">
+      <a class="brand" href="index.html" aria-label="{{product}} 首页">
+        <img src="assets/icon.png" width="24" height="24" alt="" loading="lazy">
+        <span>{{product}}</span>
+      </a>
+      <a href="LICENSE.txt">MIT 许可</a>
+    </footer>
+  </body>
+</html>

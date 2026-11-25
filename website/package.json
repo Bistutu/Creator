@@ -1,0 +1,16 @@
+{
+  "name": "creator-website",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "package": "node package-builds.mjs",
+    "build": "node build.mjs",
+    "preview": "node preview.mjs",
+    "test": "node --test releases.test.mjs",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.0"
+  }
+}

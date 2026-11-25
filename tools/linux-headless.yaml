@@ -1,0 +1,27 @@
+base:
+  - template:_images/debian-13
+vmType: vz
+arch: aarch64
+cpus: 1
+memory: 1GiB
+disk: 6GiB
+mounts: []
+networks: []
+networkOpts:
+  hostLoopback: false
+video:
+  display: none
+ssh:
+  loadDotSSHPubKeys: false
+  forwardAgent: false
+  forwardX11: false
+  overVsock: false
+portForwards:
+  - guestIP: 0.0.0.0
+    guestIPMustBeZero: false
+    proto: any
+    ignore: true
+containerd:
+  system: false
+  user: false
+propagateProxyEnv: false

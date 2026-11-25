@@ -1,0 +1,16 @@
+{
+  "name": "Creator",
+  "slug": "creator",
+  "identifier": "com.webcrate.desktop",
+  "version": "0.0.1",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "out": "build",
+  "windows": {
+    "installerInclude": "tools/windows-installer.nsh"
+  },
+  "linux": {
+    "comment": "Create desktop apps from websites",
+    "categories": ["Utility"]
+  }
+}
