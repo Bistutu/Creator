@@ -336,6 +336,8 @@ macOS 安装验收在独立应用运行时分别修改尺寸、名称和图标�
 
 同一项测试通过应用的「窗口」菜单触发 `⌘ M`。AppKit 窗口夹具模拟 Dock 的状态变化。调用重开委托后，测试确认同一个 WebKit 窗口重新显示，网页的未保存输入仍在。 [Apple 的应用重开事件](https://developer.apple.com/documentation/appkit/nsapplicationdelegate/applicationshouldhandlereopen(_:hasvisiblewindows:))
 
+测试也会向网页所在窗口发送 `⌘ X`，检查关闭最后一个窗口后应用继续运行。重开后核对原页面和未保存的输入，再用 `⌘ W` 验证可重复关闭和重开。
+
 同一项测试用 `⌘ =`、`⌘ -` 和 `⌘ 0` 核对放大、缩小和实际大小，读取 WebKit 的实际网页视口与外侧窗口尺寸，再新建 WebKit 视图验证缩放设置，并检查无效设置时使用实际大小。
 
 在 macOS 13 及更新版本，同一项测试还会让主窗口和网页弹窗里的播放器请求全屏。它检查实际显示器尺寸和原 WebKit 视图的归属，然后分别用 Esc 和网页退出操作核对原窗口、网址、视口和未保存内容。回到原窗口后等待它恢复键盘焦点，再测试菜单快捷键。 [WebKit 的全屏设置](https://developer.apple.com/documentation/webkit/wkpreferences/iselementfullscreenenabled)

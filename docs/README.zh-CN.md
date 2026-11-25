@@ -26,7 +26,7 @@ Creator 为网站创建独立窗口、图标和系统应用入口。粘贴网址
 | Windows | x64 或 ARM64 安装器与便携 ZIP | 运行安装器，或解压后打开 `Creator.exe`。需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。 |
 | Linux | x64 或 ARM64 的 DEB 与 TAR.XZ | 在 Debian 或 Ubuntu 上安装 DEB，也可解压后运行 `creator`。需要 GTK 3 和 WebKitGTK 4.1。 |
 
-首个 macOS 公开版本使用临时签名，首次打开时可能需要在「隐私与安全性」确认。 [Apple 使用指南](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
+macOS 安装包使用临时签名，首次打开时可能需要在「隐私与安全性」确认。 [Apple 使用指南](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
 
 ## 主要功能
 

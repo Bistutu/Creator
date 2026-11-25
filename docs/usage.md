@@ -42,9 +42,11 @@ Creator 把常用网站变成独立的桌面应用。打开创建页即可粘贴
 | 放大网页 | `⌘ =` | `Ctrl` + `=` |
 | 缩小网页 | `⌘ -` | `Ctrl` + `-` |
 | 实际大小 | `⌘ 0` | `Ctrl` + `0` |
-| 关闭窗口 | `⌘ W` | `Ctrl` + `W` |
+| 关闭窗口 | `⌘ W` 或 `⌘ X` | `Ctrl` + `W` |
 
 主窗口按应用记住网页缩放比例，关闭后从系统入口重新打开也会恢复。
+
+macOS 关闭最后一个窗口后，应用继续运行。从程序坞或 Creator 重新打开会恢复原网页和未保存的输入。按 `⌘ Q` 退出应用，剪切可通过「编辑 → 剪切」完成。
 
 ## 平台
 
@@ -76,7 +78,7 @@ Creator 意外退出后，重开会在后台清理中断的打包目录，补做
 
 在 macOS 打开通用版 DMG，将 Creator 拖入「应用程序」。在 Creator 中完成创建后，可从应用库或用户「应用程序」的 Creator 文件夹打开独立应用。Windows 运行对应架构的安装程序，完成后从开始菜单打开 Creator。Debian 和 Ubuntu 可安装对应架构的 DEB。
 
-首个公开版本的 macOS 安装包使用临时签名，尚未经过 Apple 公证。首次打开时，macOS 可能会要求在「隐私与安全性」确认。 [Apple 使用指南](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
+macOS 安装包使用临时签名，首次打开时可能需要在「隐私与安全性」确认。 [Apple 使用指南](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
 
 ## 开发与构建
 

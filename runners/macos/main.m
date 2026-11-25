@@ -347,12 +347,13 @@ static NSAlert *websiteDialog(NSString *message, WKFrameInfo *frame) {
     [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
 }
 
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { return YES; }
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { return NO; }
 
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)hasVisibleWindows {
-    if (!self.mainWindow.miniaturized) return YES;
-    [self.mainWindow deminiaturize:nil];
-    [self.mainWindow makeKeyAndOrderFront:nil];
+    NSWindow *window = self.mainWindow;
+    if (!window || (hasVisibleWindows && !window.miniaturized)) return YES;
+    if (window.miniaturized) [window deminiaturize:nil];
+    [window makeKeyAndOrderFront:nil];
     return NO;
 }
 
@@ -416,16 +417,17 @@ static NSAlert *websiteDialog(NSString *message, WKFrameInfo *frame) {
 
 - (void)windowWillClose:(NSNotification *)notification {
     NSWindow *window = notification.object;
-    if (window == self.mainWindow) self.pendingHome = nil;
+    if (window == self.mainWindow) {
+        self.pendingHome = nil;
+        [self saveWindowFrame];
+        // Reopening uses the same window and WebKit document.
+        return;
+    }
     if ([window.contentView isKindOfClass:WebsiteContent.class]) {
         WebsiteContent *content = (WebsiteContent *)window.contentView;
         [content finishOpening];
         WKWebView *view = content.web;
         [view removeObserver:self forKeyPath:@"underPageBackgroundColor" context:&webBackgroundContext];
-        if (window == self.mainWindow) {
-            [self saveWindowFrame];
-            return;
-        }
         // Keep the window alive through its close notification.
         dispatch_async(dispatch_get_main_queue(), ^{ [self.popups removeObjectForKey:view]; });
     }
@@ -597,6 +599,7 @@ static NSAlert *websiteDialog(NSString *message, WKFrameInfo *frame) {
 
 - (WebsiteContent *)activeContent {
     NSWindow *window = NSApp.keyWindow ?: self.mainWindow;
+    if (!window.visible) return nil;
     if ([window.contentView isKindOfClass:WebsiteContent.class]) return (WebsiteContent *)window.contentView;
     WebsiteContent *main = (WebsiteContent *)self.mainWindow.contentView;
     if (window && main.web.window == window) return main;
@@ -693,7 +696,7 @@ static NSAlert *websiteDialog(NSString *message, WKFrameInfo *frame) {
 - (void)actualSize:(id)sender { [self changeZoom:0]; }
 - (void)minimizeWindow:(id)sender {
     NSWindow *window = NSApp.keyWindow ?: self.mainWindow;
-    [window miniaturize:sender];
+    if (window.visible) [window miniaturize:sender];
 }
 
 - (NSURL *)visibleWebsiteURL {
@@ -737,7 +740,7 @@ static NSAlert *websiteDialog(NSString *message, WKFrameInfo *frame) {
     NSMenu *edit = [self menu:@"编辑" inBar:bar];
     [edit addItemWithTitle:@"撤销" action:@selector(undo:) keyEquivalent:@"z"];
     [edit addItem:[NSMenuItem separatorItem]];
-    [edit addItemWithTitle:@"剪切" action:@selector(cut:) keyEquivalent:@"x"];
+    [edit addItemWithTitle:@"剪切" action:@selector(cut:) keyEquivalent:@""];
     [edit addItemWithTitle:@"复制" action:@selector(copy:) keyEquivalent:@"c"];
     [edit addItemWithTitle:@"粘贴" action:@selector(paste:) keyEquivalent:@"v"];
     [edit addItemWithTitle:@"全选" action:@selector(selectAll:) keyEquivalent:@"a"];
@@ -758,6 +761,9 @@ static NSAlert *websiteDialog(NSString *message, WKFrameInfo *frame) {
     NSMenu *window = [self menu:@"窗口" inBar:bar];
     [window addItemWithTitle:@"最小化窗口" action:@selector(minimizeWindow:) keyEquivalent:@"m"].target = self;
     [window addItemWithTitle:@"关闭窗口" action:@selector(performClose:) keyEquivalent:@"w"];
+    NSMenuItem *closeShortcut = [window addItemWithTitle:@"关闭窗口" action:@selector(performClose:) keyEquivalent:@"x"];
+    closeShortcut.hidden = YES;
+    closeShortcut.allowsKeyEquivalentWhenHidden = YES;
     NSApp.windowsMenu = window;
     NSApp.mainMenu = bar;
 }

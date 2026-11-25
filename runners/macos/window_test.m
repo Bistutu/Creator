@@ -367,10 +367,13 @@ static void checkDownloads(WebsiteDownloadsProbe *downloads, NSWindow *window, W
     NSLog(@"Native downloads preserved destinations through replacement, connection loss, simultaneous edits, retry, parallel transfers and quit. Blob and data URL exports saved the exact contents.");
 }
 
-static BOOL performMenuKey(NSWindow *window, NSString *key, unsigned short code, NSEventModifierFlags modifiers) {
-    NSEvent *event = [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:modifiers
+static NSEvent *websiteKeyEvent(NSWindow *window, NSString *key, unsigned short code, NSEventModifierFlags modifiers) {
+    return [NSEvent keyEventWithType:NSEventTypeKeyDown location:NSZeroPoint modifierFlags:modifiers
         timestamp:0 windowNumber:window.windowNumber context:nil characters:key charactersIgnoringModifiers:key isARepeat:NO keyCode:code];
-    return [NSApp.mainMenu performKeyEquivalent:event];
+}
+
+static BOOL performMenuKey(NSWindow *window, NSString *key, unsigned short code, NSEventModifierFlags modifiers) {
+    return [NSApp.mainMenu performKeyEquivalent:websiteKeyEvent(window, key, code, modifiers)];
 }
 
 static void pressMenuKey(NSWindow *window, NSString *key, unsigned short code) {
@@ -443,6 +446,28 @@ static void checkReopenedWindow(WebsiteApp *app, WKWebViewConfiguration *config)
     NSCAssert([app applicationShouldHandleReopen:NSApp hasVisibleWindows:YES], @"Visible windows should use AppKit's normal activation");
     [window close];
     NSLog(@"With the Dock transition modeled, Command+M and reopen returned to the same WebKit window and draft.");
+}
+
+static void checkClosedWindow(WebsiteApp *app, NSWindow *window, WKWebView *web) {
+    [window makeKeyAndOrderFront:nil];
+    [window makeFirstResponder:web];
+    evaluate(web, @"const draft = document.createElement('input'); draft.id = 'close-draft';"
+        "draft.value = 'unsaved notes'; document.body.append(draft); draft.focus();"
+        "draft.setSelectionRange(draft.value.length, draft.value.length);", nil);
+    NSCAssert(![app applicationShouldTerminateAfterLastWindowClosed:NSApp], @"Closing the last website window should leave the app running");
+
+    [NSApp sendEvent:websiteKeyEvent(window, @"x", 7, NSEventModifierFlagCommand)];
+    waitFor(^BOOL { return !window.visible; }, @"Command+X did not close the website window");
+    NSCAssert(![app applicationShouldHandleReopen:NSApp hasVisibleWindows:NO], @"The app did not reopen its closed website window");
+    NSCAssert(window.visible && app.mainWindow == window &&
+        [evaluate(web, @"document.getElementById('close-draft').value", nil) isEqual:@"unsaved notes"],
+        @"Reopening discarded the closed window or its unsaved draft");
+
+    pressMenuKey(window, @"w", 13);
+    waitFor(^BOOL { return !window.visible; }, @"Command+W did not close the reopened website window");
+    NSCAssert(![app applicationShouldHandleReopen:NSApp hasVisibleWindows:NO] && window.visible,
+        @"The website window should be able to close and reopen more than once");
+    NSLog(@"Command+X and Command+W closed the native window. Reopening restored the original WebKit document and its draft.");
 }
 
 static void checkNavigation(WebsiteAppProbe *app, NSWindow *window, WKWebView *web) {
@@ -951,6 +976,7 @@ int main(int argc, const char *argv[]) {
         checkRecovery(window, web, url, @"link");
         checkRendererRecovery(window, web);
         checkLiveHome(app, window, web, [NSString stringWithUTF8String:argv[3]]);
+        checkClosedWindow(app, window, web);
         checkChrome(window, web, size);
         NSUInteger writesBeforeClosing = preferences.frameWrites;
         [window setFrameOrigin:NSMakePoint(NSMinX(window.frame) + 1, NSMinY(window.frame))];

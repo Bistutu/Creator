@@ -26,7 +26,7 @@ Choose your system and architecture on the [latest release](https://github.com/B
 | Windows | x64 or ARM64 installer or portable ZIP | Run the installer or extract the ZIP and open `Creator.exe`. Requires [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). |
 | Linux | x64 or ARM64 DEB or TAR.XZ | Install the DEB on Debian or Ubuntu, or extract the archive and run `creator`. Requires GTK 3 and WebKitGTK 4.1. |
 
-The first macOS release uses an ad hoc signature and may need approval in Privacy & Security. [Apple's instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
+The macOS installer uses an ad hoc signature and may need approval in Privacy & Security. [Apple's instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)
 
 ## What you can do
 
