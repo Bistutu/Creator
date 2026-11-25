@@ -43,12 +43,12 @@ jobs:
       - name: Prepare the packaged runner
         run: go run ./cmd/package -prepare
       - name: Run Go regressions
-        run: go test -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+        run: go test -count 1 -coverpkg './...' -coverprofile coverage.out ./...
       - name: Check the local test supervisor
         if: runner.os == 'macOS'
         run: python3 -B -m unittest discover -s tools/tests
       - name: Report Go coverage
-        run: go tool cover -func=coverage.out
+        run: go tool cover -func coverage.out
       - name: Check standalone AppKit and WebKit workflows
         if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || inputs.macos_webkit)
         env:
