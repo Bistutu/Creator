@@ -264,7 +264,11 @@ func TestWindowsMenuDirectoryReusesIndexUntilFilesChange(t *testing.T) {
 
 func assertNativeLink(t *testing.T, path, id, executable string) {
 	t.Helper()
-	err := withCOM(func() error {
+	targetPath, err := filepath.EvalSymlinks(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = withCOM(func() error {
 		if owner := shortcutOwner(path); owner != id {
 			t.Errorf("shortcut ownership = %q, want %q", owner, id)
 		}
@@ -283,8 +287,10 @@ func assertNativeLink(t *testing.T, path, id, executable string) {
 			if err := hresult("get icon", result); err != nil {
 				return err
 			}
-			if got := windows.UTF16ToString(target[:]); !strings.EqualFold(got, executable) {
-				t.Errorf("shortcut target = %q, want %q", got, executable)
+			got := windows.UTF16ToString(target[:])
+			resolved, err := filepath.EvalSymlinks(got)
+			if err != nil || !strings.EqualFold(resolved, targetPath) {
+				t.Errorf("shortcut target = %q (%v), want %q", got, err, targetPath)
 			}
 			if got := windows.UTF16ToString(icon[:]); !strings.EqualFold(got, filepath.Join(filepath.Dir(executable), "AppIcon.ico")) || index != 0 {
 				t.Errorf("shortcut icon = %q (%d)", got, index)

@@ -16,7 +16,7 @@ import (
 	"github.com/Bistutu/Creator/internal/settings"
 )
 
-//go:embed tools/windows_creator_preferences.ps1
+//go:embed testdata/windows_creator_preferences.ps1
 var windowsPreferencesCheck string
 
 func TestWindowsInstalledCreatorPreferences(t *testing.T) {

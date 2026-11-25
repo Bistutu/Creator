@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ebitengine/purego"
 	"github.com/Bistutu/Creator/internal/profile"
+	"github.com/ebitengine/purego"
 )
 
 type macTestDisplay struct {
@@ -68,7 +68,7 @@ func installedMacTestDisplay(t *testing.T) *macTestDisplay {
 	if probe == "" {
 		probe = filepath.Join(t.TempDir(), "mac-test-display")
 		macCommand(t, "/usr/bin/xcrun", "clang", "-fobjc-arc", "-framework", "AppKit", "-framework", "CoreGraphics",
-			"tools/mac_test_display.m", "-o", probe)
+			projectPath("tools", "mac_test_display.m"), "-o", probe)
 	}
 	return &macTestDisplay{name: name, probe: probe}
 }

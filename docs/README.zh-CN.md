@@ -1,19 +1,19 @@
-<p align="center"><img src="website/assets/icon.png" width="88" height="88" alt="Creator 图标"></p>
+<p align="center"><img src="../website/assets/icon.png" width="88" height="88" alt="Creator 图标"></p>
 <h1 align="center">Creator</h1>
 <p align="center">把常用网站变成独立的桌面应用。</p>
 <p align="center">
   <a href="https://github.com/Bistutu/Creator/releases/latest">下载</a> ·
-  <a href="README.md">English</a> ·
-  <a href="docs/usage.md">使用指南</a> ·
+  <a href="../README.md">English</a> ·
+  <a href="usage.md">使用指南</a> ·
   <a href="https://github.com/Bistutu/Creator/issues">问题反馈</a> ·
-  <a href="LICENSE">MIT</a>
+  <a href="../LICENSE">MIT</a>
 </p>
 
 Creator 为网站创建独立窗口、图标和系统应用入口。粘贴网址或选择推荐站点即可创建。安装包自带启动器，创建应用无需安装编译工具或下载构建依赖。
 
 <p align="center">
-  <img src="website/assets/create.png" width="245" alt="Creator 的紧凑创建页与 DeepSeek、小红书等推荐">
-  <img src="website/assets/standalone.png" width="490" alt="网站在独立的无边框窗口中运行">
+  <img src="../website/assets/create.png" width="245" alt="Creator 的紧凑创建页与 DeepSeek、小红书等推荐">
+  <img src="../website/assets/standalone.png" width="490" alt="网站在独立的无边框窗口中运行">
 </p>
 
 ## 下载安装
@@ -44,8 +44,8 @@ go run ./cmd/package -prepare
 go tool mygo dev
 ```
 
-GitHub Actions 负责运行回归、构建安装包与发布版本。参见 [测试指南](docs/testing.md)、[发布指南](docs/releasing.md) 和 [官网源码](website/)。
+GitHub Actions 负责运行回归、构建安装包与发布版本。参见 [测试指南](testing.md)、[发布指南](releasing.md) 和 [官网源码](../website/)。
 
 ## 许可证
 
-Creator 采用 [MIT 许可证](LICENSE)。安装包附有 [第三方组件许可](resources/THIRD-PARTY-LICENSES.txt)。推荐站点的标志用于识别服务，归各自权利方所有。DeepSeek 图标沿用 [Lobe Icons 许可](resources/Lobe-Icons-LICENSE.txt)。网站打包功能受 [Pake](https://github.com/tw93/Pake) 启发。
+Creator 采用 [MIT 许可证](../LICENSE)。安装包附有 [第三方组件许可](../resources/THIRD-PARTY-LICENSES.txt)。推荐站点的标志用于识别服务，归各自权利方所有。DeepSeek 图标沿用 [Lobe Icons 许可](../resources/Lobe-Icons-LICENSE.txt)。网站打包功能受 [Pake](https://github.com/tw93/Pake) 启发。

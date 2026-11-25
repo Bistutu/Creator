@@ -128,7 +128,7 @@ jobs:
           ditto "$mount/Creator.app" "$installed/Creator.app"
           hdiutil detach "$mount"
           mounted=0
-          WEBCRATE_RELEASE_APP="$installed/Creator.app" go test -v -count=1 -run '^TestMacInstalledCreatorWorkflow$' .
+          WEBCRATE_RELEASE_APP="$installed/Creator.app" go test -v -count=1 -run '^TestMacInstalledCreatorWorkflow$' ./cmd/creator
 
   installed:
     name: Install and open from the system menu (${{ matrix.os }})
@@ -176,9 +176,9 @@ jobs:
           sudo apt-get install -y "$package" dbus-daemon desktop-file-utils xvfb xauth xdotool at-spi2-core python3-pyatspi cage
           sudo apt-get install -y --no-install-recommends openbox x11-utils
           test "$(dpkg-query -W -f '${Version}' creator)" = "$version"
-          xvfb-run -a --server-args="-screen 0 1280x800x24 -noreset" dbus-run-session -- go test -v -count=1 -run '^Test(PortableInstalledCreatorWorkflow|LinuxInstalled(Creator(UI|Keyboard|LibrarySearch|Preferences|RecoversNonregularProfiles|RecoversWindowState|ReceivesWebsiteLink|ReopensFromMenu|UsesManifestArtwork|CustomIconUsesWebsiteName|ReturnsPendingWebsiteArtwork|SharesPendingWebsiteArtwork)|Website(Interactions|Navigation|AddressActions|RuntimeUnavailable|SettingsUnavailable|Recovery|Files|PopupDownloads|Zoom|Fullscreen|Placement|RecoversWindowState|OpensWithNonregularIcon)|DesktopIdentity))$' .
+          xvfb-run -a --server-args="-screen 0 1280x800x24 -noreset" dbus-run-session -- go test -v -count=1 -run '^Test(PortableInstalledCreatorWorkflow|LinuxInstalled(Creator(UI|Keyboard|LibrarySearch|Preferences|RecoversNonregularProfiles|RecoversWindowState|ReceivesWebsiteLink|ReopensFromMenu|UsesManifestArtwork|CustomIconUsesWebsiteName|ReturnsPendingWebsiteArtwork|SharesPendingWebsiteArtwork)|Website(Interactions|Navigation|AddressActions|RuntimeUnavailable|SettingsUnavailable|Recovery|Files|PopupDownloads|Zoom|Fullscreen|Placement|RecoversWindowState|OpensWithNonregularIcon)|DesktopIdentity))$' ./cmd/creator
           WEBCRATE_LINUX_MEDIA_SMOKE=1 xvfb-run -a --server-args="-screen 0 1024x768x24 -noreset" dbus-run-session -- go test -v -count=1 -run '^TestGtkMediaPermissions$' ./internal/webwindow
-          WEBCRATE_WAYLAND_SMOKE=1 dbus-run-session -- go test -v -count=1 -run '^TestLinuxInstalledWaylandIdentity$' .
+          WEBCRATE_WAYLAND_SMOKE=1 dbus-run-session -- go test -v -count=1 -run '^TestLinuxInstalledWaylandIdentity$' ./cmd/creator
       - name: Extract the portable Linux archive and open its desktop entry
         if: runner.os == 'Linux'
         shell: bash
@@ -189,7 +189,7 @@ jobs:
           tar -xJf "$RUNNER_TEMP/creator-installers/Creator-$version-linux-$CREATOR_RELEASE_ARCH.tar.xz" -C "$portable"
           PATH="$portable:$PATH" WEBCRATE_RELEASE_APP="$portable/creator" WEBCRATE_RELEASE_MENU="$portable/creator.desktop" \
             xvfb-run -a --server-args="-screen 0 1280x800x24 -noreset" dbus-run-session -- \
-            go test -v -count=1 -run '^Test(PortableInstalledCreatorWorkflow|LinuxInstalledWebsitePlacement)$' .
+            go test -v -count=1 -run '^Test(PortableInstalledCreatorWorkflow|LinuxInstalledWebsitePlacement)$' ./cmd/creator
       - name: Ensure the Windows runner has WebView2
         if: runner.os == 'Windows'
         shell: pwsh
@@ -223,7 +223,7 @@ jobs:
           $env:WEBCRATE_RELEASE_MENU = Join-Path ([Environment]::GetFolderPath('Programs')) 'Creator.lnk'
           go test -v -count=1 -run '^Test(Windows(StartMenu|MenuDirectory|Shortcut|Website(Shortcut|Process)Identity)|WindowStateFile|WindowGeometryStore|PageZoom)' ./internal/launcher ./internal/settings ./internal/webwindow
           if ($LASTEXITCODE -ne 0) { throw 'Windows desktop entry or window settings regression failed' }
-          go test -v -count=1 -run '^Test(WindowsInstalled(CreatorPreferences|WebsiteRuntimeUnavailable)|PortableInstalledCreatorWorkflow)$' .
+          go test -v -count=1 -run '^Test(WindowsInstalled(CreatorPreferences|WebsiteRuntimeUnavailable)|PortableInstalledCreatorWorkflow)$' ./cmd/creator
           if ($LASTEXITCODE -ne 0) { throw 'Installed Creator regression failed' }
           $runnerResources = "resources/windows-$env:CREATOR_RELEASE_ARCH"
           New-Item -ItemType Directory -Path $runnerResources -Force | Out-Null

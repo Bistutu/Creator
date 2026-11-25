@@ -42,7 +42,7 @@ Go 语句覆盖率包含本次构建所用的平台代码。启动器的 Objecti
 MyGo 的 `ui.NewTesterWith` 直接构建原生视图。回归用可见名称和无障碍标签触发点击、输入和键盘键。截图由同一个测试入口导出。
 
 ```sh
-WEBCRATE_SCREENSHOTS="$PWD/test-results/ui" go test -count=1 -run 'TestNative|TestCreationNeverWaits|TestOutdated|TestLateSiteIcon|TestEditingKeepsResolvedArtwork' .
+WEBCRATE_SCREENSHOTS="$PWD/test-results/ui" go test -count=1 -run 'TestNative|TestCreationNeverWaits|TestOutdated|TestLateSiteIcon|TestEditingKeepsResolvedArtwork' ./cmd/creator
 ```
 
 `TestNativeCompactEditorWindowSize` 在最小窗口对照底部三个操作的实际位置，用键盘展开、填写并收起窗口尺寸，再验证保存的宽高。`TestNativeWindowDimensionsEaseInAndOut` 检查展开和收起的中间帧、快速反向展开时的焦点，以及收起时跳过宽高字段。`TestNativeCardAndDialogMotion` 对照弹窗开关时的面板和遮罩像素，检查立即恢复入口焦点以及减少动态效果时直接到位。DeskPad 的设置和关于回归与 Linux 的键盘回归也核对同一底部布局、键盘焦点和尺寸草稿。
@@ -61,7 +61,7 @@ WEBCRATE_SCREENSHOTS="$PWD/test-results/ui" go test -count=1 -run 'TestNative|Te
 
 ```sh
 python3 tools/local_check.py --timeout 32 -- \
-  go test -run '^$' -bench '^BenchmarkCreatorFirstFrame$' -benchtime=350ms -count=3 -benchmem .
+  go test -run '^$' -bench '^BenchmarkCreatorFirstFrame$' -benchtime=350ms -count=3 -benchmem ./cmd/creator
 ```
 
 `TestNativeCreatorBrandMenu` 在最小窗口检查标识菜单的键盘选择和取消后的焦点。`TestNativePreferencesEditor` 检查尺寸校验、回车提交、保存状态、重复提交、失败重试、恢复默认和取消。`TestNativeAboutCopiesVersion` 检查复制失败重试后只复制版本号。`TestNativeAboutShowsLicense` 用键盘打开、选择和复制只读的许可全文，返回时核对焦点。`TestDefaultWindowDimensionsApplyToNewDrafts` 核对新建表单使用已保存的默认尺寸，已打开的表单和已有应用保留各自的尺寸。`go test ./internal/settings` 检查旧配置缺少字段、配置损坏及替换文件失败时的恢复。
@@ -167,7 +167,7 @@ go test -run '^$' -bench '^BenchmarkCustomArtworkApplication$' -benchtime=300ms 
 `TestNativeLargeLibraryCanOpenEditAndRemoveWhileArtworkLoads` 用 120 个配置验证应用库分批加载图标，检查图标尚未载入时的编辑表单和临时图标。`TestSlowArtworkKeepsOtherApplicationsUsable` 暂停图标文件读取，确认其他应用的保存和启动可以继续，以及同一应用在文件读取完成后能重试。`TestSettingsCanSaveWhileInstalledArtworkDecodes` 在文件关闭后暂停解码，核对同一应用可以保存名称和尺寸，原图标文件字节一致。以下基准测量应用库读取和索引总耗时、重复显示同一搜索结果和通过标识查找已安装应用的配置。
 
 ```sh
-go test -run '^$' -bench '^(BenchmarkDesktopLibrary|BenchmarkStoredApplicationLookup)' -benchmem .
+go test -run '^$' -bench '^(BenchmarkDesktopLibrary|BenchmarkStoredApplicationLookup)' -benchmem ./cmd/creator
 ```
 
 `BenchmarkRestoreStoredLaunchers` 用 120 和 1,200 份配置测量启动修复时读取与查找配置的耗时和堆分配，使用测试替身提供系统入口和已安装应用。`BenchmarkStoreEditAndRead` 测量同样规模下保存一项尺寸设置并读回的成本。配置回归覆盖同长度、同时间戳的原地修改和替换、旧文件里的重复 ID、缓存与实际写入内容的一致性，以及配置路径被命名管道替换后报错和恢复。
@@ -206,7 +206,7 @@ WEBCRATE_GUI_SMOKE=1 \
 
 WEBCRATE_RELEASE_APP=/Applications/Creator.app \
   python3 tools/local_check.py --deskpad --timeout 90 -- \
-  go test -count=1 -v -run '^TestMacInstalledCreatorWorkflow$' .
+  go test -count=1 -v -run '^TestMacInstalledCreatorWorkflow$' ./cmd/creator
 ```
 
 运行器测试会核对主窗口和弹窗的位置，再执行全屏、文件和恢复操作。全屏用例在测试进程内指定 AppKit 的屏幕，WebKit 创建的真实全屏窗口仍会检查位置和大小。安装验收为隔离的管理器和独立应用预置虚拟屏上的位置，再核对实际窗口。改尺寸、改名或重开时沿用应用保存的位置。指定显示器找不到、名称重复或放不下测试窗口时，预检直接失败。
@@ -265,8 +265,8 @@ report_dir="$PWD/test-results/ui"
   trap 'rm -rf -- "$preview_dir"' EXIT
   mkdir -p "$preview_dir/coverage" "$report_dir"
   python3 tools/local_check.py --timeout 45 -- \
-    go build -trimpath -cover -coverpkg=./... -tags creator_e2e -o "$preview_dir/Creator" .
-  python3 tools/local_check.py --timeout 45 -- go test -c -o "$preview_dir/installed.test" .
+    go build -trimpath -cover -coverpkg=./... -tags creator_e2e -o "$preview_dir/Creator" ./cmd/creator
+  python3 tools/local_check.py --timeout 45 -- go test -c -o "$preview_dir/installed.test" ./cmd/creator
   for tests in \
     'CustomIcon|CustomIconUsesWebsiteName|LoadsRecommendationsAfterLibraryStartup' \
     'AddressPreview|CachedURLArtwork|UsesManifestArtwork|ReturnsPendingWebsiteArtwork|SharesPendingWebsiteArtwork' \
@@ -508,7 +508,7 @@ python3 tools/local_check.py --timeout 180 --lima creator-check -- sh -eu -c '
 version=$(node -p 'require("./mygo.json").version')
 package="Creator-$version-linux-arm64.deb"
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 python3 tools/local_check.py --timeout 60 -- \
-  go test -c -o "$LIMA_HOME/installed.test" .
+  go test -c -o "$LIMA_HOME/installed.test" ./cmd/creator
 python3 tools/local_check.py --timeout 120 --lima creator-check -- sh -eu -c '
   limactl copy "website/dist/downloads/$1" "$LIMA_HOME/installed.test" creator-check:/tmp/
   limactl shell --workdir=/tmp creator-check -- sudo dpkg --install "/tmp/$1"
@@ -529,7 +529,7 @@ python3 tools/local_check.py --timeout 120 --lima creator-check -- sh -eu -c '
   stage=$(mktemp -d)
   trap 'rm -rf -- "$stage"' EXIT
   mkdir "$stage/coverage"
-  go build -cover -coverpkg=./... -o "$stage/creator" .
+  go build -cover -coverpkg=./... -o "$stage/creator" ./cmd/creator
   go build -cover -coverpkg=./... -o "$stage/WebCrateRunner" ./cmd/runner
   sha256sum "$stage/WebCrateRunner" | cut -d ' ' -f 1 | tr -d '\n' > "$stage/WebCrateRunner.sha256"
   cat > "$stage/creator.desktop" <<EOF
@@ -541,7 +541,7 @@ Terminal=false
 EOF
   WEBCRATE_RELEASE_APP="$stage/creator" WEBCRATE_RELEASE_MENU="$stage/creator.desktop" \
     GOCOVERDIR="$stage/coverage" xvfb-run -a --server-args="-screen 0 1280x800x24 -noreset" \
-    dbus-run-session -- go test -v -count=1 -run '^TestLinuxInstalled(Creator(UI|Keyboard|LibrarySearch|Preferences|ReopensFromMenu|UsesManifestArtwork|CustomIconUsesWebsiteName)|Website(Interactions|Navigation|AddressActions|Recovery|Files|PopupDownloads|Zoom|Fullscreen|Placement|OpensWithNonregularIcon))$' .
+    dbus-run-session -- go test -v -count=1 -run '^TestLinuxInstalled(Creator(UI|Keyboard|LibrarySearch|Preferences|ReopensFromMenu|UsesManifestArtwork|CustomIconUsesWebsiteName)|Website(Interactions|Navigation|AddressActions|Recovery|Files|PopupDownloads|Zoom|Fullscreen|Placement|OpensWithNonregularIcon))$' ./cmd/creator
   go test -c -coverpkg=./... -o "$stage/media.test" ./internal/webwindow
   GOCOVERDIR="$stage/coverage" WEBCRATE_LINUX_MEDIA_SMOKE=1 \
     xvfb-run -a --server-args="-screen 0 1024x768x24 -noreset" \

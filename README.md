@@ -3,7 +3,7 @@
 <p align="center">Turn websites into desktop apps.</p>
 <p align="center">
   <a href="https://github.com/Bistutu/Creator/releases/latest">Download</a> ·
-  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="docs/README.zh-CN.md">简体中文</a> ·
   <a href="docs/usage.md">User guide (中文)</a> ·
   <a href="https://github.com/Bistutu/Creator/issues">Feedback</a> ·
   <a href="LICENSE">MIT</a>

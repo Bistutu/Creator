@@ -90,6 +90,12 @@ func desktopEntry(app profile.App, executable string) []byte {
 	// Exec is a quoted command line read from a desktop-entry string.
 	// The string escaping is decoded before its command line is split.
 	exec := `"` + execEscapes.Replace(executable) + `"`
+	if strings.ContainsRune(executable, '%') {
+		// GLib 2.80 checks the program path before expanding "%%". Pass
+		// the path as an argument to a fixed command so it can be decoded.
+		const launch = `exec "$0"`
+		exec = `/bin/sh -c "` + execEscapes.Replace(launch) + `" ` + exec
+	}
 	return fmt.Appendf(nil, "[Desktop Entry]\nX-WebCrate-ID=%s\nType=Application\nName=%s\nExec=%s\nIcon=%s\nStartupWMClass=%s\nTerminal=false\nCategories=Network;\n",
 		app.ID, desktopEscapes.Replace(app.Name), desktopEscapes.Replace(exec),
 		desktopEscapes.Replace(filepath.Join(filepath.Dir(executable), runnerconfig.WindowIconFilename)), profile.LinuxDesktopID(app.ID))

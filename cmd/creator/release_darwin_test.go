@@ -23,18 +23,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ebitengine/purego"
-	"github.com/ebitengine/purego/objc"
-	"github.com/egoist/mygo/ui"
 	"github.com/Bistutu/Creator/internal/bundle"
 	"github.com/Bistutu/Creator/internal/icons"
 	"github.com/Bistutu/Creator/internal/launcher"
 	"github.com/Bistutu/Creator/internal/library"
 	"github.com/Bistutu/Creator/internal/profile"
+	"github.com/ebitengine/purego"
+	"github.com/ebitengine/purego/objc"
+	"github.com/egoist/mygo/ui"
 )
 
 func TestMacCreatedAppKeepsInlineArtwork(t *testing.T) {
-	backend, err := bundle.NewBackend(filepath.Join("resources", "darwin-"+runtime.GOARCH), "")
+	backend, err := bundle.NewBackend(projectPath("resources", "darwin-"+runtime.GOARCH), "")
 	if err != nil {
 		t.Skipf("prepare the release helper with `go run ./cmd/package -prepare`: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestMacCreatedAppKeepsInlineArtwork(t *testing.T) {
 }
 
 func BenchmarkMacCachedWebsiteCreation(b *testing.B) {
-	backend, err := bundle.NewBackend(filepath.Join("resources", "darwin-"+runtime.GOARCH), "")
+	backend, err := bundle.NewBackend(projectPath("resources", "darwin-"+runtime.GOARCH), "")
 	if err != nil {
 		b.Skipf("prepare the release helper with go run ./cmd/package -prepare: %v", err)
 	}
@@ -249,7 +249,7 @@ func BenchmarkMacCachedWebsiteCreation(b *testing.B) {
 }
 
 func TestMacRestoresCachedWebsiteIconAfterRestart(t *testing.T) {
-	backend, err := bundle.NewBackend(filepath.Join("resources", "darwin-"+runtime.GOARCH), "")
+	backend, err := bundle.NewBackend(projectPath("resources", "darwin-"+runtime.GOARCH), "")
 	if err != nil {
 		t.Skipf("prepare the release helper with `go run ./cmd/package -prepare`: %v", err)
 	}

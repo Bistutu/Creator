@@ -33,6 +33,15 @@ var (
 	orientedFixtureRed  = color.NRGBA{R: 220, G: 59, B: 47, A: 255}
 )
 
+func projectPath(parts ...string) string {
+	// Go runs package tests from cmd/creator. The compiled test binary also
+	// supports running from the repository root.
+	if _, err := os.Stat("mygo.json"); err == nil {
+		return filepath.Join(parts...)
+	}
+	return filepath.Join("..", "..", filepath.Join(parts...))
+}
+
 func orientedIconFixture(t *testing.T, dir string) string {
 	t.Helper()
 	picture := image.NewNRGBA(image.Rect(0, 0, 128, 64))

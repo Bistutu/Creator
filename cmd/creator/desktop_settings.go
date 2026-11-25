@@ -1,16 +1,15 @@
 package main
 
 import (
-	_ "embed"
-	"encoding/json"
 	"log"
 	"runtime"
 	"slices"
 	"strconv"
 
+	"github.com/Bistutu/Creator"
+	"github.com/Bistutu/Creator/internal/settings"
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-	"github.com/Bistutu/Creator/internal/settings"
 )
 
 const (
@@ -26,21 +25,14 @@ const (
 	licenseBody      = "MIT 许可证正文"
 )
 
-//go:embed mygo.json
-var projectManifest []byte
-
-//go:embed LICENSE
-var creatorLicense string
-
+var creatorLicense = creator.License()
 var persistPreferences = settings.Save
 
 func creatorVersion() string {
 	if version := mygo.App.Version(); version != "" {
 		return version
 	}
-	var manifest struct{ Version string }
-	_ = json.Unmarshal(projectManifest, &manifest)
-	return manifest.Version
+	return creator.Version()
 }
 
 func creatorMenu(showSettings, showAbout func()) *mygo.Menu {

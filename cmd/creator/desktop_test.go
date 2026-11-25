@@ -5,6 +5,7 @@ import (
 	"errors"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/egoist/mygo/transfer"
-	"github.com/egoist/mygo/ui"
 	"github.com/Bistutu/Creator/internal/bundle"
 	"github.com/Bistutu/Creator/internal/catalog"
 	"github.com/Bistutu/Creator/internal/icons"
 	"github.com/Bistutu/Creator/internal/library"
 	"github.com/Bistutu/Creator/internal/profile"
+	"github.com/egoist/mygo/transfer"
+	"github.com/egoist/mygo/ui"
 )
 
 type testingBundle struct {
@@ -1032,8 +1033,11 @@ func TestNativeCompactEditorWindowSize(t *testing.T) {
 	size, sizeOK := tt.Find("窗口尺寸")
 	cancel, cancelOK := tt.Find("取消")
 	create, createOK := tt.Find("创建应用")
+	sizeCenter := size.Y + size.H/2
+	cancelCenter := cancel.Y + cancel.H/2
+	createCenter := create.Y + create.H/2
 	if !sizeOK || !cancelOK || !createOK || size.X+size.W >= cancel.X || cancel.X+cancel.W >= create.X ||
-		size.Y >= cancel.Y+cancel.H || cancel.Y >= size.Y+size.H || create.Y != cancel.Y {
+		math.Abs(float64(sizeCenter-cancelCenter)) > 1 || math.Abs(float64(createCenter-cancelCenter)) > 1 {
 		t.Fatalf("the compact editor does not share one footer: size=%+v, cancel=%+v, create=%+v", size, cancel, create)
 	}
 	if tt.HasText("窗口宽度") || !tt.Focused("应用名称") {

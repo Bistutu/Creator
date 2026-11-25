@@ -5,6 +5,7 @@
   "version": "0.0.1",
   "license": "MIT",
   "icon": "resources/icon.png",
+  "main": "./cmd/creator",
   "out": "build",
   "windows": {
     "installerInclude": "tools/windows-installer.nsh"

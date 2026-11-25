@@ -25,7 +25,7 @@ func TestLinuxLaunchesFromApplicationMenu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	executable := filepath.Join(t.TempDir(), "示例 with \"quotes\" %$`\\")
+	executable := filepath.Join(t.TempDir(), "示例 with \"quotes\" %=$`\\")
 	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf 'launched' > \"$0.ready\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
